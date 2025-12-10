@@ -24,14 +24,13 @@ except ImportError as e:
 class HybridMerchanClassifier:
     """Classificador que combina análise de imagem com detecção de elementos visuais"""
     
-    def __init__(self, classes=None, network=None):
+    def __init__(self, classes=None):
         """Inicializa classificador híbrido"""
         self.classes = classes if classes else ['conteudo', 'merchan']
-        self.network = network
         
         # Inicializar componentes
         if MODULES_AVAILABLE:
-            self.image_classifier = SimpleVideoClassifier(classes=self.classes, network=network)
+            self.image_classifier = SimpleVideoClassifier(classes=self.classes)
             self.merchan_detector = MerchanVisualDetector()
         else:
             print("❌ Módulos não disponíveis - modo limitado")

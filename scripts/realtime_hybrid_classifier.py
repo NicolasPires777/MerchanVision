@@ -74,18 +74,16 @@ if not HYBRID_AVAILABLE:
         sys.exit(1)
 
 class RealTimeHybridClassifier:
-    def __init__(self, model_path, network='mixed', window_seconds=3, fps_target=30):
+    def __init__(self, model_path, window_seconds=3, fps_target=30):
         """
         Classificador híbrido de vídeo em tempo real
         
         Args:
             model_path: Caminho para o modelo treinado
-            network: Rede alvo ('record', 'sbt', 'mixed')
             window_seconds: Janela de tempo para classificação (segundos)
             fps_target: FPS alvo para processamento
         """
         self.model_path = model_path
-        self.network = network
         self.window_seconds = window_seconds
         self.fps_target = fps_target
         self.frame_interval = max(1, fps_target // 8)
@@ -100,10 +98,10 @@ class RealTimeHybridClassifier:
         # Inicializar classificador
         if HYBRID_AVAILABLE:
             print(f"🤖 Carregando modelo híbrido: {model_path}")
-            self.classifier = HybridMerchanClassifier(network=self.network)
+            self.classifier = HybridMerchanClassifier()
         else:
             print(f"📸 Carregando classificador de imagem: {model_path}")
-            self.classifier = SimpleVideoClassifier(network=self.network)
+            self.classifier = SimpleVideoClassifier()
         
         # Tentar diferentes formatos de caminho
         if os.path.isdir(model_path):
@@ -158,7 +156,6 @@ class RealTimeHybridClassifier:
         }
         
         print(f"✅ Classificador iniciado - Janela: {window_seconds}s, FPS: {fps_target}")
-        print(f"🌐 Rede configurada: {network}")
         if self.hybrid_mode:
             print(f"🔍 Modo híbrido ativado (imagem + indicadores visuais)")
         else:
@@ -799,8 +796,6 @@ def main():
                        help='Caminho para o modelo treinado (.pkl ou diretório)')
     parser.add_argument('--video', '-v', required=True,
                        help='Caminho do vídeo, "0" para webcam, ou URL de stream')
-    parser.add_argument('--network', '-n', choices=['record', 'sbt', 'mixed'], default='mixed',
-                       help='Rede alvo (record/sbt/mixed)')
     parser.add_argument('--window', '-w', type=int, default=3,
                        help='Janela de tempo em segundos (padrão: 3)')
     parser.add_argument('--fps', '-f', type=int, default=30,
@@ -813,7 +808,6 @@ def main():
     print("=" * 60)
     print(f"📂 Modelo: {args.model}")
     print(f"🎬 Vídeo: {args.video}")
-    print(f"🌐 Rede: {args.network}")
     print(f"⏱️ Janela: {args.window}s")
     print(f"📺 FPS: {args.fps}")
     print("=" * 60)
@@ -822,7 +816,6 @@ def main():
         # Inicializar classificador híbrido
         classifier = RealTimeHybridClassifier(
             model_path=args.model,
-            network=args.network,
             window_seconds=args.window,
             fps_target=args.fps
         )
