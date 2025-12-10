@@ -1,0 +1,191 @@
+# 🎯 MerchanVision - Arquivo .gitignore
+
+# ========================================
+# MODELOS E DATASETS (ARQUIVOS GRANDES)
+# ========================================
+
+# Modelos treinados (podem ser muito grandes)
+models/
+*.h5
+*.pkl
+*.joblib
+*.model
+*.weights
+*.pt
+!yolo11*.pt
+
+# Datasets (dados de treinamento sensíveis/grandes)
+datasets/
+video_classification/
+data/
+*/dataset/
+sample_dataset/
+temp_dataset/
+yolo_dataset/
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.flv
+
+# ========================================
+# ARQUIVOS DE MÍDIA E IMAGENS
+# ========================================
+
+# Imagens (exceto exemplos e documentação)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.webp
+!examples/*.png
+!examples/*.jpg
+!examples/*.jpeg
+!docs/images/*.png
+!docs/images/*.jpg
+
+# ========================================
+# PYTHON
+# ========================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environments
+.env.local
+.env.production
+.env.development
+.venv/
+.env
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ========================================
+# MACHINE LEARNING / AI
+# ========================================
+
+# Experiment tracking
+runs/
+wandb/
+mlruns/
+experiments/
+lightning_logs/
+
+# TensorFlow
+*.tfevents.*
+*.pb
+saved_model/
+checkpoint
+*.ckpt*
+*.meta
+*.index
+
+# ========================================
+# DADOS TEMPORÁRIOS E CACHE
+# ========================================
+
+# Logs
+*.log
+logs/
+log/
+
+# Temporários
+tmp/
+temp/
+*.tmp
+*.temp
+archive/*.pt
+archive/*.log
+
+# Cache
+cache/
+.cache/
+*.cache
+
+# Screenshots e outputs temporários
+screenshots/
+outputs/
+results/
+
+# ========================================
+# IDEs E EDITORES
+# ========================================
+
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+
+# Vim
+*.swp
+*.swo
+
+# ========================================
+# SISTEMA OPERACIONAL
+# ========================================
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.directory
+
+# ========================================
+# OUTROS ARQUIVOS ESPECÍFICOS
+# ========================================
+
+# Backups
+*.backup
+*.bak
+backup/
+
+# Relatórios e métricas
+reports/
+metrics/
+
+# Configurações sensíveis
+config.local.py
+secrets.json
+credentials.json
