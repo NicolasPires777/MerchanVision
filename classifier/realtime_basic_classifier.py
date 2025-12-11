@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Sistema de Classificação de Vídeo em Tempo Real - APENAS VÍDEOS LOCAIS
-Classifica entre: break, conteudo, merchan
+Sistema de Classificação Básica de Vídeo em Tempo Real
+Classifica entre: break, conteudo, merchan usando apenas CNN
 """
 
 import cv2
@@ -18,15 +18,15 @@ from pathlib import Path
 # Adicionar paths necessários
 current_dir = Path(__file__).parent
 sys.path.append(str(current_dir))
-sys.path.append(str(current_dir.parent / 'common'))
+sys.path.append(str(current_dir.parent))  # Para acessar arquivos na raiz
 
 try:
-    from video_classifier_simple import SimpleVideoClassifier
+    from classifier.basic_classifier import BasicVideoClassifier
 except ImportError:
-    print("❌ Erro: video_classifier_simple.py não encontrado")
+    print("❌ Erro: basic_classifier.py não encontrado")
     sys.exit(1)
 
-class RealTimeVideoClassifier:
+class RealTimeBasicClassifier:
     def __init__(self, model_path, window_seconds=3, fps_target=30):
         """
         Classificador de vídeo em tempo real para ARQUIVOS LOCAIS APENAS
@@ -43,7 +43,7 @@ class RealTimeVideoClassifier:
         
         # Carregar classificador
         print(f"🤖 Carregando modelo: {model_path}")
-        self.classifier = SimpleVideoClassifier()
+        self.classifier = BasicVideoClassifier()
         
         # Tentar diferentes formatos de caminho
         if os.path.isdir(model_path):
@@ -339,7 +339,7 @@ def main():
     
     try:
         # Criar classificador
-        classifier = RealTimeVideoClassifier(
+        classifier = RealTimeBasicClassifier(
             model_path=args.model,
             window_seconds=args.window,
             fps_target=args.fps

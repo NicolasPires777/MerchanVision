@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-🛒 Detector de Elementos Visuais de Merchandising
-Identifica QR-codes, telefones, preços, emails e outros indicadores visuais
+� Visual Elements Detector - Detector de Elementos Visuais
+
+Responsabilidade única: Detectar elementos visuais em vídeos/imagens
+Identifica QR-codes, telefones, preços, emails e outros indicadores visuais.
 """
 
 import cv2
@@ -12,8 +14,8 @@ from pathlib import Path
 import json
 import os
 
-class MerchanVisualDetector:
-    """Detecta elementos visuais que indicam merchandising"""
+class VisualElementsDetector:
+    """Detecta elementos visuais que podem indicar conteúdo comercial"""
     
     def __init__(self):
         """Inicializa detectores"""
@@ -48,7 +50,7 @@ class MerchanVisualDetector:
                 r'\d{5}[-.]?\d{3}',                    # 12345-678
             ],
             'commercial': [
-                r'liga\s*j[aá]',                       # liga já
+                r'ligue\s*j[aá]',                       # ligue já
                 r'acesse\s*j[aá]',                     # acesse já
                 r'compre\s*j[aá]',                     # compre já
                 r'cadastre[-\s]se',                    # cadastre-se
@@ -222,7 +224,7 @@ def test_detector():
     
     args = parser.parse_args()
     
-    detector = MerchanVisualDetector()
+    detector = VisualElementsDetector()
     
     print(f"🔍 Analisando: {args.video}")
     results = detector.analyze_video(args.video, args.frames)

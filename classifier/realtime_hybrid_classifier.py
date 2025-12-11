@@ -1,34 +1,7 @@
 #!/usr/bin/env python3
 """
 Sistema de Classificação Híbrida de Vídeo em Tempo Real
-Combina classificação de imagem com detecção de indicadores visuai        try:
-            # Redimensionar frames para o tamanho esperado (224x224)
-            resized_frames = []
-            target_size = (224, 224)
-            
-            for frame in selected_frames:
-                # Redimensionar frame mantendo proporção
-                resized = cv2.resize(frame, target_size)
-                resized_frames.append(resized)
-            
-            # Garantir que temos exatamente o número esperado de frames
-            if len(resized_frames) == 0:
-                return None, {}
-            
-            # Se temos menos frames que o esperado, duplicar o último
-            while len(resized_frames) < 12:
-                resized_frames.append(resized_frames[-1])
-            
-            # Se temos mais frames que o esperado, pegar apenas os primeiros 12
-            resized_frames = resized_frames[:12]
-            
-            # Extrair features de imagem
-            frames_array = np.array(resized_frames)
-            
-            if HYBRID_AVAILABLE:
-                image_features = self.classifier.image_classifier.extract_features_from_frames(frames_array)
-            else:
-                image_features = self.classifier.extract_features_from_frames(frames_array)one, etc)
+Combina classificação CNN com detecção de indicadores visuais
 Classifica entre: break, conteudo, merchan
 """
 
@@ -46,18 +19,19 @@ from pathlib import Path
 # Adicionar paths necessários
 current_dir = Path(__file__).parent
 sys.path.append(str(current_dir))
-sys.path.append(str(current_dir.parent / 'common'))
+sys.path.append(str(current_dir.parent))  # Para acessar arquivos na raiz
 
 try:
-    from hybrid_classifier import HybridMerchanClassifier
-    from ai_config import config
+    # Imports absolutos em vez de relativos
+    from classifier.hybrid_classifier import HybridVideoClassifier
+    from config import config
     HYBRID_AVAILABLE = True
 except ImportError as e:
     print(f"❌ Erro de importação híbrida: {e}")
     HYBRID_AVAILABLE = False
 
 try:
-    from merchan_detector import MerchanVisualDetector
+    from classifier.visual_elements_detector import VisualElementsDetector
     MERCHAN_DETECTOR_AVAILABLE = True
 except ImportError as e:
     print(f"⚠️ Detector de indicadores não disponível: {e}")
@@ -67,7 +41,7 @@ except ImportError as e:
 # Fallback para classificação simples
 if not HYBRID_AVAILABLE:
     try:
-        from video_classifier_simple import SimpleVideoClassifier
+        from classifier.basic_classifier import BasicVideoClassifier
         print("🔄 Usando classificador de imagem tradicional")
     except ImportError as e:
         print(f"❌ Erro crítico de importação: {e}")
@@ -98,10 +72,10 @@ class RealTimeHybridClassifier:
         # Inicializar classificador
         if HYBRID_AVAILABLE:
             print(f"🤖 Carregando modelo híbrido: {model_path}")
-            self.classifier = HybridMerchanClassifier()
+            self.classifier = HybridVideoClassifier()
         else:
             print(f"📸 Carregando classificador de imagem: {model_path}")
-            self.classifier = SimpleVideoClassifier()
+            self.classifier = BasicVideoClassifier()
         
         # Tentar diferentes formatos de caminho
         if os.path.isdir(model_path):
@@ -120,7 +94,7 @@ class RealTimeHybridClassifier:
         # Inicializar detector de indicadores visuais (opcional)
         if MERCHAN_DETECTOR_AVAILABLE:
             print("🔍 Inicializando detector de indicadores visuais...")
-            self.merchan_detector = MerchanVisualDetector()
+            self.merchan_detector = VisualElementsDetector()
             self.hybrid_mode = True
         else:
             print("⚠️ Modo híbrido desabilitado - apenas análise de imagem")

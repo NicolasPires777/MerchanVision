@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-🤖 Classificador Híbrido: EfficientNet + Indicadores Visuais de Merchandising
-Combina análise de imagem tradicional com detecção específica de elementos comerciais
+🤖 Hybrid Video Classifier - Classificação Híbrida de Vídeos
+
+Responsabilidade única: Classificação avançada combinando CNN + indicadores visuais
+Combina análise de imagem tradicional com detecção específica de elementos comerciais.
 """
 
 import cv2
@@ -11,17 +13,17 @@ import joblib
 from pathlib import Path
 import json
 
-# Importar módulos existentes
+# Importar módulos do projeto
 try:
-    from video_classifier_simple import SimpleVideoClassifier
-    from merchan_detector import MerchanVisualDetector
-    from ai_config import config
+    from classifier.basic_classifier import BasicVideoClassifier
+    from classifier.visual_elements_detector import VisualElementsDetector
+    from config import config
     MODULES_AVAILABLE = True
 except ImportError as e:
     print(f"⚠️ Erro ao importar módulos: {e}")
     MODULES_AVAILABLE = False
 
-class HybridMerchanClassifier:
+class HybridVideoClassifier:
     """Classificador que combina análise de imagem com detecção de elementos visuais"""
     
     def __init__(self, classes=None):
@@ -30,8 +32,8 @@ class HybridMerchanClassifier:
         
         # Inicializar componentes
         if MODULES_AVAILABLE:
-            self.image_classifier = SimpleVideoClassifier(classes=self.classes)
-            self.merchan_detector = MerchanVisualDetector()
+            self.image_classifier = BasicVideoClassifier(classes=self.classes)
+            self.visual_detector = VisualElementsDetector()
         else:
             print("❌ Módulos não disponíveis - modo limitado")
             return
@@ -60,9 +62,24 @@ class HybridMerchanClassifier:
         image_features = self.image_classifier.extract_video_features(video_path)
         
         # Indicadores visuais de merchandising
-        merchan_analysis = self.merchan_detector.analyze_video(video_path, max_frames=8)
+        merchan_analysis = self.visual_detector.analyze_video(video_path, max_frames=8)
         
         return image_features, merchan_analysis
+    
+    def extract_features_from_frames(self, frames_array):
+        """
+        Extrai features de frames já carregados (para tempo real)
+        
+        Args:
+            frames_array (np.array): Array de frames [N, H, W, 3]
+        
+        Returns:
+            np.array: Features agregadas do classificador de imagem
+        """
+        if not MODULES_AVAILABLE:
+            return None
+        
+        return self.image_classifier.extract_features_from_frames(frames_array)
     
     def predict_hybrid(self, video_path, return_details=False):
         """Predição híbrida combinando imagem + indicadores visuais"""
@@ -283,7 +300,7 @@ def main():
         return
     
     # Criar classificador
-    classifier = HybridMerchanClassifier(
+    classifier = HybridVideoClassifier(
         classes=['conteudo', 'merchan'],
         network=args.network
     )
@@ -330,7 +347,7 @@ def main():
             print("❌ --video é obrigatório para testar")
             return
         
-        detector = MerchanVisualDetector()
+        detector = VisualElementsDetector()
         results = detector.analyze_video(args.video, max_frames=10)
         
         print(f"\n🔍 === TESTE DE DETECÇÃO ===")

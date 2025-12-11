@@ -3,8 +3,13 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange.svg)
-![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green.svg)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange.sv├── 📂 classifier/                     # 🔴 Sistema de classificação
+│   ├── feature_extractor.py          #   🔧 Extração de features CNN
+│   ├── basic_classifier.py           #   🎬 Classificação básica (CNN + ML)
+│   ├── hybrid_classifier.py          #   🤖 Classificação híbrida (CNN + Indicadores)
+│   ├── visual_elements_detector.py   #   🔍 Detecção de elementos visuais
+│   ├── realtime_basic_classifier.py  #   📺 Tempo real básico
+│   └── realtime_hybrid_classifier.py #   🧠 Tempo real híbridoenCV](https://img.shields.io/badge/OpenCV-4.x-green.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 *Sistema de IA híbrida para classificação inteligente de conteúdo vs merchandising em vídeos*
@@ -35,9 +40,16 @@ Esta combinação resulta em **70%+ de precisão** mesmo em casos ambíguos.
 
 ## ✨ Principais Características
 
-### 🎯 **Classificação Inteligente**
-- **Detecção em Tempo Real**: Análise contínua de vídeos
-- **Sistema Híbrido**: Combina análise visual + indicadores comerciais
+### 🎯 **Arquitetura Modular**
+- **Sistema Organizado**: Estrutura em pacotes especializados
+- **Responsabilidades Únicas**: Cada módulo com função específica
+- **Configuração Centralizada**: Sistema unificado de configurações
+- **Fácil Manutenção**: Código limpo e bem documentado
+
+### 🔴 **Classificação Inteligente**
+- **Básica**: CNN + RandomForest/SVM (`basic_classifier.py`)
+- **Híbrida**: CNN + Indicadores visuais (`hybrid_classifier.py`)
+- **Tempo Real**: Processamento contínuo de vídeos
 - **Multi-formato**: Suporte a arquivos de vídeo locais
 
 ### 🔍 **Detecção de Indicadores Visuais**
@@ -48,6 +60,26 @@ Esta combinação resulta em **70%+ de precisão** mesmo em casos ambíguos.
 
 ### ⚙️ **Configuração Flexível**
 - **71+ Parâmetros**: Arquivo `.env` com configurações detalhadas
+- **Ambiente Python**: Detecção automática de virtual environments
+- **OCR Multi-idioma**: Suporte a português com Tesseract
+
+### 🏗️ **Nova Arquitetura Modular v3.0**
+
+A versão 3.0 introduz uma arquitetura completamente reorganizada:
+
+```
+🎯 Classificadores Core (Offline):
+├── basic_classifier.py      # CNN + ML clássico (RF/SVM)
+└── hybrid_classifier.py     # CNN + Indicadores visuais
+
+🔴 Interfaces Tempo Real:
+├── realtime_basic_classifier.py   # Wrapper realtime do basic
+└── realtime_hybrid_classifier.py  # Wrapper realtime do hybrid
+
+🔧 Componentes Especializados:
+├── feature_extractor.py          # Extração de features CNN
+└── visual_elements_detector.py   # Detecção de elementos visuais
+```
 - **Configurações Customizáveis**: Ajustes específicos por projeto/contexto
 - **Balanceamento**: Ajuste automático para datasets desbalanceados
 
@@ -126,7 +158,13 @@ print(f"Confiança: {result['confidence']:.1%}")
 ```bash
 # Sistema Híbrido (RECOMENDADO)
 python project_manager.py
-# Escolha: 6 → 1 (Híbrida)
+# Escolha: 7 → 1 (Híbrida) → Modelo → Arquivo de vídeo
+
+# Ou execute diretamente:
+python classifier/realtime_hybrid_classifier.py --model models/Alpha-v7 --video meu_video.mp4
+
+# Sistema Básico (apenas CNN)
+python classifier/realtime_basic_classifier.py --model models/Alpha-v7 --video meu_video.mp4
 
 # Resultado típico:
 🧠 Alpha-v7 prediz: 65% Merchan
@@ -184,12 +222,23 @@ graph TD
 ```
 MerchanVision/
 ├── 📄 project_manager.py              # 🎮 Interface principal
-├── 📂 scripts/                        # 🧠 Módulos de IA
-│   ├── video_classifier_simple.py     #   📊 Classificador base
-│   ├── realtime_hybrid_classifier.py  #   🔴 Sistema híbrido tempo real
-│   ├── hybrid_classifier.py           #   ⚖️ Classificador híbrido
-│   ├── merchan_detector.py           #   👁️ Detector de indicadores
-│   └── ai_config.py                  #   ⚙️ Configurações centralizadas
+├── 📂 config/                         # ⚙️ Configurações do sistema
+│   ├── settings.py                   #   ⚙️ Configurações centralizadas
+│   └── __init__.py                   #   📦 Interface do módulo
+├── 📂 dataset_manager/                # 📁 Gestão de datasets
+│   ├── dataset_creator.py            #   ➕ Criação de datasets
+│   ├── dataset_lister.py             #   📋 Listagem e carregamento
+│   └── dataset_validator.py          #   ✅ Validação de datasets
+├── 📂 model_manager/                  # � Gestão de modelos
+│   ├── model_trainer.py              #   🚀 Treinamento de modelos
+│   └── model_validator.py            #   📊 Validação e diagnóstico
+├── 📂 classifier/                     # 🔴 Classificação tempo real
+│   ├── hibrid_classifier.py          #   🧠 Classificador híbrido
+│   └── tradicional_classifier.py     #   � Classificador tradicional
+├── 📄 video_classifier_simple.py     # 📊 Classificador base
+├── 📄 hybrid_classifier.py           # ⚖️ Classificador híbrido
+├── 📄 merchan_detector.py             # 👁️ Detector de indicadores
+├── 📄 ai_config.py                   # ⚙️ Configurações centralizadas
 ├── 📂 models/                         # 🎯 Modelos treinados (ignorado no git)
 ├── 📂 datasets/                       # 📚 Datasets de treino (ignorado no git)
 ├── 📄 .env                           # ⚙️ Configurações do sistema

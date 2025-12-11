@@ -20,6 +20,7 @@ from dataset_manager import (
     get_dataset_basic_info
 )
 from model_manager import VideoModelTrainer, ModelValidator, list_available_models
+from config import config
 
 class VideoClassificationManager:
     """Gerenciador de classificação de vídeo"""
@@ -28,7 +29,6 @@ class VideoClassificationManager:
         self.base_dir = "/home/nicolas/Zedia/Others/AI-Detector"
         self.models_dir = os.path.join(self.base_dir, "models")
         self.datasets_dir = os.path.join(self.base_dir, "datasets")
-        self.scripts_dir = os.path.join(self.base_dir, "scripts")
         
         # Detectar Python correto (ambiente virtual)
         self.python_cmd = self._detect_python_command()
@@ -287,18 +287,18 @@ class VideoClassificationManager:
         
         # Determinar script a usar
         if classifier_choice == '1':
-            script_name = 'scripts/realtime_hybrid_classifier.py'
+            script_name = 'classifier/realtime_hybrid_classifier.py'
             print("🤖 Usando classificador híbrido (detecta indicadores visuais)")
         else:
-            script_name = 'scripts/realtime_classifier_local.py'
-            print("📸 Usando classificador tradicional (apenas imagem)")
+            script_name = 'classifier/realtime_basic_classifier.py'
+            print("📸 Usando classificador básico (apenas imagem)")
         
         # Verificar se o script existe
         if not os.path.exists(script_name):
             print(f"❌ Script não encontrado: {script_name}")
             if classifier_choice == '1':
-                print("💡 Execute: python3 scripts/realtime_hybrid_classifier.py --help")
-                print("💡 Ou use a opção 2 (classificação tradicional)")
+                print("💡 Execute: python3 classifier/realtime_hybrid_classifier.py --help")
+                print("💡 Ou use a opção 2 (classificação básica)")
             return
 
         if rt_choice == '1':
