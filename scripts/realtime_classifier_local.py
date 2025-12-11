@@ -179,74 +179,27 @@ class RealTimeVideoClassifier:
         Processa arquivo de vídeo local
         
         Args:
-            video_path: Caminho do arquivo de vídeo, '0' para webcam, ou URL de stream
+            video_path: Caminho do arquivo de vídeo local
         """
         print(f"🎬 Iniciando classificação de vídeo: {video_path}")
         
-        # Determinar o tipo de source
-        if video_path == '0' or video_path == 0:
-            print(f"📡 Tipo: webcam")
-            cap = cv2.VideoCapture(0)
+        # Verificar se é webcam ou stream (não suportados)
+        if str(video_path) == '0':
+            print("❌ Webcam não suportada nesta versão")
+            return
         elif str(video_path).startswith(('srt://', 'http://', 'https://', 'rtmp://', 'rtsp://')):
-            print(f"📡 Tipo: stream ({video_path})")
-            cap = cv2.VideoCapture(video_path)
+            print("❌ Streams não suportados nesta versão")
+            return
         else:
-            print(f"📡 Tipo: arquivo local")
+            print(f"� Tipo: arquivo de vídeo local")
             if not os.path.exists(video_path):
                 print(f"❌ Arquivo não encontrado: {video_path}")
                 return
+                
             cap = cv2.VideoCapture(video_path)
         
         if not cap.isOpened():
-            print(f"❌ Erro ao abrir vídeo: {video_path}")
-            if str(video_path).startswith('srt://'):
-                print("💡 OpenCV não conseguiu abrir stream SRT diretamente")
-                print("🔄 Tentando método alternativo com FFmpeg...")
-                
-                # Tentar usar FFmpeg para streams SRT
-                try:
-                    import subprocess
-                    import sys
-                    
-                    # Caminho do script FFmpeg alternativo
-                    current_dir = os.path.dirname(os.path.abspath(__file__))
-                    ffmpeg_script = os.path.join(current_dir, "srt_ffmpeg_classifier.py")
-                    
-                    if os.path.exists(ffmpeg_script):
-                        print(f"🚀 Executando método FFmpeg...")
-                        
-                        # Preparar argumentos
-                        cmd = [
-                            sys.executable,
-                            ffmpeg_script,
-                            "--srt-url", video_path,
-                            "--model", self.model_path
-                        ]
-                        
-                        # Executar script FFmpeg
-                        subprocess.run(cmd, check=True)
-                        return
-                    else:
-                        print(f"❌ Script FFmpeg não encontrado: {ffmpeg_script}")
-                        
-                except subprocess.CalledProcessError as e:
-                    print(f"❌ Erro no método FFmpeg: {e}")
-                except Exception as e:
-                    print(f"❌ Erro inesperado: {e}")
-                
-                print("\n💡 Dicas para stream SRT:")
-                print("  - Verifique se o stream está ativo")
-                print("  - Teste primeiro no VLC com a mesma URL")
-                print("  - OpenCV pode precisar de FFmpeg com suporte SRT")
-                print()
-                print("🧪 Para testar conectividade do stream:")
-                print(f"  ffprobe -v quiet -print_format json '{video_path}'")
-                print(f"  vlc '{video_path}'")
-            elif str(video_path).startswith(('http://', 'https://')):
-                print("💡 Dicas para streams HTTP:")
-                print("  - Verifique se a URL está correta")
-                print("  - Teste conectividade da rede")
-                print("  - Alguns streams podem precisar de autenticação")
+            print(f"❌ Erro ao abrir arquivo de vídeo: {video_path}")
             return
         
         # Obter informações do vídeo
@@ -261,24 +214,12 @@ class RealTimeVideoClassifier:
             duration = total_frames / fps if fps > 0 else 0
             print(f"📊 Duração: {duration:.1f}s ({total_frames:.0f} frames)")
         
-        # Calcular delay entre frames para manter velocidade original
-        is_webcam = (video_path == '0' or video_path == 0)
-        is_stream = str(video_path).startswith(('srt://', 'http://', 'https://', 'rtmp://', 'rtsp://'))
-        
-        if is_webcam or is_stream:
-            frame_delay = 1.0 / 30.0  # 30 FPS para webcam/stream
-        else:
-            frame_delay = 1.0 / fps if fps > 0 else 1.0 / 30.0
+        # Calcular delay entre frames para manter velocidade original (apenas arquivos locais)
+        frame_delay = 1.0 / fps if fps > 0 else 1.0 / 30.0
         
         print(f"⏱️ Delay entre frames: {frame_delay*1000:.1f}ms")
-        if is_webcam:
-            print("🎥 Modo webcam: velocidade em tempo real")
-        elif is_stream:
-            print("📡 Modo stream: velocidade em tempo real")
-            print("💡 Para stream SRT, o delay é mínimo para evitar buffer overflow")
-        else:
-            print(f"📹 Modo arquivo: respeitando FPS original ({fps:.1f})")
-            print("💡 Controles: Q=sair, SPACE=pausar, S=screenshot, R=reiniciar")
+        print(f"📹 Modo arquivo: respeitando FPS original ({fps:.1f})")
+        print("💡 Controles: Q=sair, SPACE=pausar, S=screenshot, R=reiniciar")
         
         # Iniciar thread de classificação
         self.processing = True
@@ -297,7 +238,7 @@ class RealTimeVideoClassifier:
                 
                 if not ret:
                     if video_path == '0' or video_path == 0:
-                        print("⚠️ Perda de conexão com webcam")
+                        print("⚠️ Perda de conexão com vídeo")
                         time.sleep(1)
                         continue
                     else:
@@ -322,20 +263,15 @@ class RealTimeVideoClassifier:
                 display_frame = self.draw_classification_overlay(display_frame)
                 
                 # Mostrar frame
-                cv2.imshow('Classificacao de Video - LOCAL e STREAMS', display_frame)
+                cv2.imshow('Classificacao de Video Local', display_frame)
                 
-                # Controle de velocidade - respeitar FPS original
-                if not is_webcam and not is_stream:
-                    # Para arquivos de vídeo: respeitar timing original
-                    elapsed = time.time() - frame_start_time
-                    remaining_time = frame_delay - elapsed
-                    if remaining_time > 0:
-                        wait_time = int(remaining_time * 1000)  # Convert to milliseconds
-                        key = cv2.waitKey(wait_time) & 0xFF
-                    else:
-                        key = cv2.waitKey(1) & 0xFF
+                # Controle de velocidade - respeitar FPS original do arquivo
+                elapsed = time.time() - frame_start_time
+                remaining_time = frame_delay - elapsed
+                if remaining_time > 0:
+                    wait_time = int(remaining_time * 1000)  # Convert to milliseconds
+                    key = cv2.waitKey(wait_time) & 0xFF
                 else:
-                    # Para webcam/stream, usar delay mínimo
                     key = cv2.waitKey(1) & 0xFF
                 
                 frame_start_time = time.time()  # Reset para próximo frame
@@ -353,14 +289,9 @@ class RealTimeVideoClassifier:
                     cv2.imwrite(screenshot_name, display_frame)
                     print(f"📸 Screenshot salvo: {screenshot_name}")
                 elif key == ord('r'):
-                    # Reiniciar vídeo (só para arquivos, não webcam nem stream)
-                    if not is_webcam and not is_stream:
-                        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        print("🔄 Vídeo reiniciado")
-                    elif is_stream:
-                        print("⚠️ Não é possível reiniciar streams - pressione Q para sair")
-                    else:
-                        print("⚠️ Não é possível reiniciar webcam")
+                    # Reiniciar vídeo
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    print("🔄 Vídeo reiniciado")
                 
                 frame_count += 1
                 
@@ -386,7 +317,7 @@ class RealTimeVideoClassifier:
 def main():
     parser = argparse.ArgumentParser(description="Classificador de Vídeo - APENAS ARQUIVOS LOCAIS")
     parser.add_argument('--model', required=True, help="Caminho para o modelo treinado")
-    parser.add_argument('--source', required=True, help="Arquivo de vídeo local ou '0' para webcam")
+    parser.add_argument('--source', required=True, help="Arquivo de vídeo local")
     parser.add_argument('--window', type=int, default=5, 
                        help="Janela de tempo para classificação (segundos)")
     parser.add_argument('--fps', type=int, default=30, 
@@ -399,7 +330,7 @@ def main():
         print(f"❌ Modelo não encontrado: {args.model}")
         return
     
-    # Verificar se arquivo de vídeo existe (se não for webcam nem stream)
+    # Verificar se arquivo de vídeo existe
     if (args.source != '0' and 
         not str(args.source).startswith(('srt://', 'http://', 'https://', 'rtmp://', 'rtsp://')) and 
         not os.path.exists(args.source)):

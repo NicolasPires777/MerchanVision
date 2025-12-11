@@ -219,12 +219,10 @@ class VideoClassificationManager:
         
         classifier_choice = input("\nEscolha o classificador (1-2): ").strip()
         
-        print("\nTipos de fonte disponíveis:")
+        print("\nTipo de fonte disponível:")
         print("1. 📹 Arquivo de vídeo local")
-        print("2. 🎥 Webcam")
-        print("3. 📡 Stream SRT")
         
-        rt_choice = input("\nEscolha o tipo (1-3): ").strip()
+        rt_choice = "1"  # Apenas arquivo de vídeo local disponível
         
         # Selecionar modelo
         models = self.list_models()
@@ -279,8 +277,8 @@ class VideoClassificationManager:
                         ], check=True)
                 except subprocess.CalledProcessError as e:
                     print(f"❌ Erro na classificação: {e}")
-                    
-        elif rt_choice == '2':
+        else:
+            print("❌ Opção inválida")
             # Webcam
             try:
                 if classifier_choice == '1':
@@ -300,64 +298,6 @@ class VideoClassificationManager:
             except subprocess.CalledProcessError as e:
                 print(f"❌ Erro na classificação: {e}")
                 
-        elif rt_choice == '3':
-            # Stream SRT
-            print("📡 === Stream SRT ===")
-            print("Exemplo: srt://livehub.zedia.tv:49002?mode=caller")
-            srt_url = input("URL do stream SRT: ").strip()
-            
-            if not srt_url:
-                print("💡 Usando URL padrão...")
-                srt_url = "srt://livehub.zedia.tv:49002?mode=caller"
-                print(f"📡 URL: {srt_url}")
-            
-            if srt_url:
-                print("🚀 Iniciando classificação de stream SRT...")
-                
-                if classifier_choice == '1':
-                    # Classificador híbrido
-                    print("🧠 Usando classificador híbrido com stream SRT")
-                    try:
-                        subprocess.run([
-                            self.python_cmd, script_name,
-                            '--model', model_path,
-                            '--video', srt_url
-                        ], check=True)
-                    except subprocess.CalledProcessError as e:
-                        print(f"❌ Erro na classificação híbrida: {e}")
-                        print("💡 Stream SRT pode ter limitações com OCR em tempo real")
-                        print("💡 Tente usar a classificação tradicional para streams")
-                else:
-                    # Classificador tradicional
-                    print("💡 Tentando método 1: OpenCV direto")
-                    try:
-                        subprocess.run([
-                            self.python_cmd, script_name,
-                            '--model', model_path,
-                            '--source', srt_url,
-                            '--fps', '25'
-                        ], check=True)
-                    except subprocess.CalledProcessError as e:
-                        print(f"❌ Método 1 falhou: {e}")
-                        print("\n🔄 Tentando método 2: FFmpeg + OpenCV")
-                        print("💡 Este método pode funcionar melhor com streams SRT")
-                        
-                        try:
-                            subprocess.run([
-                                self.python_cmd, 'scripts/srt_ffmpeg_classifier.py',
-                                '--model', model_path,
-                                '--srt-url', srt_url
-                            ], check=True)
-                        except subprocess.CalledProcessError as e2:
-                            print(f"❌ Método 2 também falhou: {e2}")
-                            print("💡 Certifique-se de que:")
-                            print("  - O stream SRT está ativo")
-                            print("  - FFmpeg está instalado (sudo apt install ffmpeg)")
-                            print("  - A rede permite conexão ao stream")
-                            print("  - Teste primeiro com VLC")
-        else:
-            print("❌ Opção inválida")
-    
     def validate_model(self):
         """Valida um modelo"""
         print("\n📊 === Validação de Modelo ===")

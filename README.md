@@ -36,9 +36,9 @@ Esta combinação resulta em **70%+ de precisão** mesmo em casos ambíguos.
 ## ✨ Principais Características
 
 ### 🎯 **Classificação Inteligente**
-- **Detecção em Tempo Real**: Análise contínua de streams de vídeo
+- **Detecção em Tempo Real**: Análise contínua de vídeos
 - **Sistema Híbrido**: Combina análise visual + indicadores comerciais
-- **Multi-formato**: Suporte a arquivos locais, streams SRT, webcam
+- **Multi-formato**: Suporte a arquivos de vídeo locais
 
 ### 🔍 **Detecção de Indicadores Visuais**
 - **QR-Codes**: Detecção automática de códigos QR

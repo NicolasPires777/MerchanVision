@@ -612,17 +612,18 @@ class RealTimeHybridClassifier:
         print(f"🎬 Iniciando classificação híbrida de vídeo: {video_path}")
         
         # Determinar o tipo de source
-        if video_path == '0' or video_path == 0:
-            print(f"📡 Tipo: webcam")
-            cap = cv2.VideoCapture(0)
+        if str(video_path) == '0':
+            print("❌ Webcam não suportada nesta versão")
+            return
         elif str(video_path).startswith(('srt://', 'http://', 'https://', 'rtmp://', 'rtsp://')):
-            print(f"📡 Tipo: stream ({video_path})")
-            cap = cv2.VideoCapture(video_path)
+            print("❌ Streams não suportados nesta versão")
+            return
         else:
-            print(f"📡 Tipo: arquivo local")
+            print(f"� Tipo: arquivo de vídeo local")
             if not os.path.exists(video_path):
                 print(f"❌ Arquivo não encontrado: {video_path}")
                 return
+            
             cap = cv2.VideoCapture(video_path)
         
         if not cap.isOpened():
