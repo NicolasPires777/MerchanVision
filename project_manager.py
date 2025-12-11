@@ -10,6 +10,16 @@ import argparse
 import subprocess
 from pathlib import Path
 
+# Import dataset manager functions
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from dataset_manager import (
+    create_sample_dataset,
+    load_video_dataset,
+    validate_dataset,
+    get_dataset_statistics,
+    get_dataset_basic_info
+)
+
 class VideoClassificationManager:
     """Gerenciador de classificação de vídeo"""
     
@@ -63,7 +73,7 @@ class VideoClassificationManager:
         return models
     
     def list_datasets(self):
-        """Lista todos os datasets disponíveis"""
+        """Lista todos os datasets disponíveis usando dataset_manager"""
         datasets = [d for d in os.listdir(self.datasets_dir) 
                    if os.path.isdir(os.path.join(self.datasets_dir, d)) and 
                    d not in ['__pycache__']]
@@ -76,36 +86,18 @@ class VideoClassificationManager:
         for dataset in datasets:
             dataset_path = os.path.join(self.datasets_dir, dataset)
             
-            # Detectar classes dinamicamente
             try:
-                classes_info = {}
-                total_videos = 0
+                # Usar dataset_manager para obter informações básicas (sem verbose output)
+                info = get_dataset_basic_info(dataset_path)
+                total_videos = info['total_videos']
+                classes = info['classes']
                 
-                # Verificar todas as pastas dentro do dataset
-                for item in os.listdir(dataset_path):
-                    class_path = os.path.join(dataset_path, item)
-                    if os.path.isdir(class_path) and item != '__pycache__':
-                        # Contar vídeos nesta classe
-                        video_count = len([f for f in os.listdir(class_path) 
-                                         if f.endswith(('.mp4', '.avi', '.mov', '.mkv'))])
-                        if video_count > 0:  # Só mostrar classes que têm vídeos
-                            classes_info[item] = video_count
-                            total_videos += video_count
-                
-                if classes_info:
+                if total_videos > 0:
                     # Criar string das classes dinamicamente
-                    classes_str = ", ".join([f"{class_name.capitalize()}:{count}" 
-                                           for class_name, count in sorted(classes_info.items())])
+                    classes_str = ", ".join([f"{class_name.capitalize()}:{info['class_counts'][class_name]}" 
+                                           for class_name in classes])
                     
-                    # Determinar status de balanceamento
-                    if len(classes_info) >= 2:
-                        counts = list(classes_info.values())
-                        min_count, max_count = min(counts), max(counts)
-                        balance_status = "⚖️ Balanceado" if (max_count - min_count) <= 5 else "⚠️ Desbalanceado"
-                    else:
-                        balance_status = "➖ Única classe"
-                    
-                    print(f"  📊 {dataset}: {total_videos} vídeos ({classes_str}) {balance_status}")
+                    print(f"  📊 {dataset}: {total_videos} vídeos ({classes_str})")
                 else:
                     print(f"  📊 {dataset}: 0 vídeos (vazio)")
                     
@@ -115,7 +107,7 @@ class VideoClassificationManager:
         return datasets
     
     def create_dataset(self, dataset_name):
-        """Cria estrutura de dataset"""
+        """Cria estrutura de dataset usando dataset_manager"""
         dataset_path = os.path.join(self.datasets_dir, dataset_name)
         
         print(f"📁 Criando dataset: {dataset_name}")
@@ -143,24 +135,76 @@ class VideoClassificationManager:
         
         print(f"\n📂 Classes a criar: {', '.join(classes)}")
         
-        # Criar estrutura de pastas
-        for class_name in classes:
-            class_path = os.path.join(dataset_path, class_name)
-            os.makedirs(class_path, exist_ok=True)
-            print(f"  ✅ {class_path}")
-        
-        print(f"\n🎯 Dataset '{dataset_name}' criado!")
-        print(f"📂 Diretório: {dataset_path}")
-        print(f"\n📝 Próximos passos:")
-        print(f"  1. Adicione vídeos (.mp4, .avi, .mov, .mkv) nas pastas correspondentes:")
-        
-        for class_name in classes:
-            print(f"     - {dataset_path}/{class_name}/")
-        
-        print(f"  2. Execute o treinamento do modelo")
+        try:
+            # Usar dataset_manager para criar o dataset
+            dataset_path = create_sample_dataset(
+                custom_classes=classes, 
+                base_path=self.datasets_dir,
+                dataset_name=dataset_name
+            )
+            
+            print(f"\n🎯 Dataset '{dataset_name}' criado!")
+            print(f"📂 Diretório: {dataset_path}")
+            print(f"\n📝 Próximos passos:")
+            print(f"  1. Adicione vídeos (.mp4, .avi, .mov, .mkv) nas pastas correspondentes:")
+            
+            for class_name in classes:
+                print(f"     - {dataset_path}/{class_name}/")
+            
+            print(f"  2. Execute o treinamento do modelo")
+            print(f"  3. Use 'python3 dataset_manager/dataset_creator.py validate --path {dataset_path}' para validar")
+            
+        except Exception as e:
+            print(f"❌ Erro ao criar dataset: {e}")
+            return None
         
         return dataset_path
     
+    def validate_dataset_interactive(self, dataset_name=None):
+        """Valida dataset usando dataset_manager"""
+        if dataset_name is None:
+            datasets = self.list_datasets()
+            if not datasets:
+                print("❌ Nenhum dataset encontrado!")
+                return False
+            
+            print(f"\nDatasets disponíveis: {', '.join(datasets)}")
+            dataset_name = input("Nome do dataset para validar: ").strip()
+            
+            if not dataset_name or dataset_name not in datasets:
+                print("❌ Dataset inválido!")
+                return False
+        
+        dataset_path = os.path.join(self.datasets_dir, dataset_name)
+        
+        print(f"\n🔍 Validando dataset '{dataset_name}'...")
+        
+        try:
+            # Usar dataset_manager para validação
+            is_valid = validate_dataset(dataset_path)
+            
+            if is_valid:
+                print(f"✅ Dataset '{dataset_name}' está pronto para treinamento!")
+                
+                # Mostrar estatísticas
+                stats = get_dataset_statistics(dataset_path)
+                print(f"\n📊 Resumo:")
+                print(f"  🎬 Total: {stats['total_videos']} vídeos")
+                print(f"  ⚖️ Balanceamento: {stats['balance_ratio']:.2f}")
+                
+                for class_name, info in stats['classes'].items():
+                    percentage = (info['count'] / stats['total_videos'] * 100) if stats['total_videos'] > 0 else 0
+                    print(f"  📋 {class_name.capitalize()}: {info['count']} vídeos ({percentage:.1f}%)")
+                
+                return True
+            else:
+                print(f"❌ Dataset '{dataset_name}' precisa de correções!")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Erro na validação: {e}")
+            return False
+
     def train_model(self, model_name, dataset_name):
         """Treina um modelo"""
         dataset_path = os.path.join(self.datasets_dir, dataset_name)
@@ -403,14 +447,15 @@ class VideoClassificationManager:
             print("1. 📋 Listar modelos")
             print("2. 📁 Listar datasets") 
             print("3. 🆕 Criar novo dataset")
-            print("4. 🚀 Treinar modelo")
-            print("5. 🎯 Classificar vídeo único")
-            print("6. 🔴 Classificação em tempo real")
-            print("7. 📊 Validar modelo")
-            print("8. 🆚 Comparar modelos")
+            print("4. 📁 Validar dataset")
+            print("5. 🚀 Treinar modelo")
+            print("6. 🎯 Classificar vídeo único")
+            print("7. 🔴 Classificação em tempo real")
+            print("8. 📊 Validar modelo")
+            print("9. 🆚 Comparar modelos")
             print("0. Sair")
             
-            choice = input("\nEscolha uma opção (0-8): ").strip()
+            choice = input("\nEscolha uma opção (0-9): ").strip()
             
             if choice == '0':
                 print("👋 Saindo...")
@@ -424,20 +469,22 @@ class VideoClassificationManager:
                 if dataset_name:
                     self.create_dataset(dataset_name)
             elif choice == '4':
+                self.validate_dataset_interactive()
+            elif choice == '5':
                 model_name = input("Nome do modelo: ").strip()
                 dataset_name = input("Nome do dataset: ").strip()
                 if model_name and dataset_name:
                     self.train_model(model_name, dataset_name)
-            elif choice == '5':
+            elif choice == '6':
                 model_name = input("Nome do modelo: ").strip()
                 video_path = input("Caminho do vídeo: ").strip()
                 if model_name and video_path:
                     self.classify_video(model_name, video_path)
-            elif choice == '6':
-                self.realtime_classification()
             elif choice == '7':
-                self.validate_model()
+                self.realtime_classification()
             elif choice == '8':
+                self.validate_model()
+            elif choice == '9':
                 self.compare_models()
             else:
                 print("❌ Opção inválida")

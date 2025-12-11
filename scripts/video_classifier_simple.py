@@ -18,6 +18,83 @@ from sklearn.svm import SVC
 from sklearn.metrics import classification_report
 import argparse
 from pathlib import Path
+import sys
+
+# Import dataset manager functions
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from dataset_manager import load_video_dataset, detect_dataset_classes
+
+
+def load_dataset_and_extract_features(dataset_path, classifier_instance):
+    """
+    Carrega dataset usando dataset_manager e extrai features com classifier
+    
+    Args:
+        dataset_path: Caminho para o dataset
+        classifier_instance: Instância da classe SimpleVideoClassifier
+        
+    Returns:
+        tuple: (X, y) arrays com features e labels
+    """
+    print(f"📁 Carregando dataset de: {dataset_path}")
+    
+    # Detectar classes que realmente existem no dataset
+    actual_classes = detect_dataset_classes(dataset_path)
+    
+    # Usar apenas as classes que existem no dataset e também estão configuradas no classifier
+    available_classes = [cls for cls in classifier_instance.classes if cls in actual_classes]
+    
+    if not available_classes:
+        print(f"❌ Nenhuma classe válida encontrada no dataset")
+        print(f"   Classes configuradas no classifier: {classifier_instance.classes}")
+        print(f"   Classes encontradas no dataset: {actual_classes}")
+        return np.array([]), np.array([])
+    
+    print(f"🎯 Usando classes: {available_classes}")
+    
+    # Usar dataset_manager para carregar informações do dataset
+    dataset_info = load_video_dataset(dataset_path, available_classes, verbose=False)
+    
+    X, y = [], []
+    
+    for class_idx, class_name in enumerate(available_classes):
+        video_files = dataset_info.get(class_name, [])
+        
+        if not video_files:
+            print(f"⚠️ Nenhum vídeo encontrado para classe: {class_name}")
+            continue
+        
+        print(f"🎬 Processando {len(video_files)} vídeos de '{class_name}'")
+        
+        for i, video_file in enumerate(video_files):
+            print(f"  [{i+1}/{len(video_files)}] {os.path.basename(video_file)}")
+            
+            try:
+                features = classifier_instance.extract_video_features(video_file)
+                
+                if features is not None:
+                    X.append(features)
+                    y.append(class_idx)
+                    print(f"    ✅ Features extraídas: {features.shape}")
+                else:
+                    print(f"    ❌ Erro ao extrair features")
+            
+            except Exception as e:
+                print(f"    ❌ Erro: {e}")
+    
+    X = np.array(X)
+    y = np.array(y)
+    
+    print(f"\n📊 Dataset processado:")
+    print(f"  🎬 Total de vídeos: {len(X)}")
+    print(f"  📐 Dimensão das features: {X.shape[1] if len(X) > 0 else 0}")
+    
+    for i, class_name in enumerate(available_classes):
+        count = np.sum(y == i)
+        percentage = (count / len(y) * 100) if len(y) > 0 else 0
+        print(f"  📋 {class_name}: {count} vídeos ({percentage:.1f}%)")
+    
+    return X, y
 import time
 import json
 
@@ -231,67 +308,6 @@ class SimpleVideoClassifier:
         
         return aggregated_features
     
-    def load_dataset(self, dataset_path):
-        """
-        Carrega dataset e extrai features
-        
-        Estrutura:
-        dataset/
-        ├── break/
-        │   ├── video1.mp4
-        │   └── ...
-        └── conteudo/
-            ├── video2.mp4
-            └── ...
-        """
-        print(f"📁 Carregando dataset de: {dataset_path}")
-        
-        X, y = [], []
-        
-        for class_idx, class_name in enumerate(self.classes):
-            class_path = os.path.join(dataset_path, class_name)
-            
-            if not os.path.exists(class_path):
-                print(f"⚠️ Pasta não encontrada: {class_path}")
-                continue
-            
-            # Encontrar vídeos
-            video_extensions = ['*.mp4', '*.avi', '*.mov', '*.mkv']
-            video_files = []
-            for ext in video_extensions:
-                video_files.extend(Path(class_path).glob(ext))
-            
-            print(f"🎬 Processando {len(video_files)} vídeos de '{class_name}'")
-            
-            for i, video_file in enumerate(video_files):
-                print(f"  [{i+1}/{len(video_files)}] {video_file.name}")
-                
-                try:
-                    features = self.extract_video_features(str(video_file))
-                    
-                    if features is not None:
-                        X.append(features)
-                        y.append(class_idx)
-                        print(f"    ✅ Features extraídas: {features.shape}")
-                    else:
-                        print(f"    ❌ Erro ao extrair features")
-                
-                except Exception as e:
-                    print(f"    ❌ Erro: {e}")
-        
-        X = np.array(X)
-        y = np.array(y)
-        
-        print(f"\n📊 Dataset processado:")
-        print(f"  🎬 Total de vídeos: {len(X)}")
-        print(f"  📐 Dimensão das features: {X.shape[1] if len(X) > 0 else 0}")
-        
-        for i, class_name in enumerate(self.classes):
-            count = np.sum(y == i)
-            print(f"  📋 {class_name}: {count} vídeos ({count/len(y)*100:.1f}%)")
-        
-        return X, y
-    
     def train(self, X, y, classifier_type=None):
         """
         Treina classificador usando configurações do .env
@@ -493,105 +509,6 @@ class SimpleVideoClassifier:
             print(f"❌ Erro ao carregar modelo: {e}")
             return False
 
-def create_sample_dataset(custom_classes=None):
-    """Cria estrutura de exemplo para dataset com classes customizáveis"""
-    dataset_path = "video_classification/sample_dataset"
-    
-    # Usar classes padrão ou customizadas
-    if custom_classes is None:
-        classes = ['break', 'conteudo', 'merchan']
-    else:
-        classes = custom_classes
-    
-    # Criar pastas para cada classe
-    for class_name in classes:
-        os.makedirs(os.path.join(dataset_path, class_name), exist_ok=True)
-        print(f"📁 Pasta criada: {class_name}/")
-    
-    # Criar arquivo README atualizado
-    readme_content = f"""
-# Dataset de Vídeos: Classificação Múltipla
-
-## Classes Disponíveis:
-
-- **break**: Pausas, intervalos, telas estáticas
-- **conteudo**: Conteúdo principal, apresentações, falas
-- **merchan**: Merchandising, promoções, vendas de produtos
-
-## Estrutura:
-
-```
-sample_dataset/
-├── break/          # Vídeos de break/pausas
-│   ├── break1.mp4
-│   ├── pausa1.mp4
-│   └── ...
-├── conteudo/       # Vídeos de conteúdo principal
-│   ├── aula1.mp4
-│   ├── palestra1.mp4
-│   └── ...
-└── merchan/        # Vídeos de merchandising
-    ├── produto1.mp4
-    ├── promocao1.mp4
-    └── ...
-```
-
-## Classes configuradas: {', '.join(classes)}
-
-## Como usar:
-
-1. **Adicionar vídeos:**
-   - Coloque vídeos de break/pausas na pasta `break/`
-   - Coloque vídeos de conteúdo principal na pasta `conteudo/`
-   - Coloque vídeos de merchandising na pasta `merchan/`
-
-2. **Treinar modelo:**
-   ```bash
-   python video_classifier_simple.py train --dataset sample_dataset --save models/multi_classifier
-   ```
-
-3. **Classificar vídeo:**
-   ```bash
-   python video_classifier_simple.py predict --video meu_video.mp4 --load models/multi_classifier
-   ```
-
-## Exemplos de cada categoria:
-
-### 🛑 Break:
-- Logos da empresa/canal
-- Telas de "voltamos já"
-- Intervalos musicais
-- Transições gráficas
-- Pausas técnicas
-
-### 📺 Conteúdo:
-- Palestras/apresentações
-- Aulas/explicações
-- Entrevistas
-- Demonstrações
-- Material educativo
-
-### 🛍️ Merchan:
-- Promoção de produtos
-- Anúncios comerciais
-- Calls-to-action de vendas
-- Apresentação de serviços
-- Links para compra
-
-## Dicas para melhor classificação:
-
-- Mínimo **20 vídeos por categoria**
-- Vídeos de **diferentes fontes** e qualidades
-- Duração variada (5s a 5min)
-- Diferentes cenários de cada tipo
-"""
-
-    with open(os.path.join(dataset_path, "README.md"), 'w') as f:
-        f.write(readme_content)
-    
-    print(f"📁 Estrutura de dataset criada em: {dataset_path}")
-    print(f"📖 Leia o README.md para instruções")
-
 def main():
     """Interface de linha de comando"""
     parser = argparse.ArgumentParser(description="Classificador Flexível: Break vs Conteúdo vs Merchan")
@@ -614,8 +531,12 @@ def main():
         print(f"🔧 Configurações carregadas do .env")
     
     if args.command == 'setup':
-        classes = args.classes if args.classes else (config.get_classes() if CONFIG_AVAILABLE else ['conteudo', 'merchan'])
-        create_sample_dataset(classes)
+        print("📁 Para criar datasets, use o projeto manager:")
+        print("   python3 project_manager.py")
+        print("   E selecione a opção '3. 🆕 Criar novo dataset'")
+        print()
+        print("📁 Ou use o dataset_manager diretamente:")
+        print("   python3 dataset_manager/dataset_creator.py create --classes break conteudo merchan")
         return
     
     elif args.command == 'train':
@@ -641,7 +562,7 @@ def main():
             print(f"🎯 Usando classes especificadas: {classes}")
             classifier = SimpleVideoClassifier(classes=classes)
         
-        X, y = classifier.load_dataset(args.dataset)
+        X, y = load_dataset_and_extract_features(args.dataset, classifier)
         
         if len(X) == 0:
             print("❌ Dataset vazio")
