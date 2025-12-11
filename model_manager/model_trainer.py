@@ -241,11 +241,17 @@ class VideoModelTrainer:
             model_path = os.path.join(save_path, "classifier.pkl")
             joblib.dump(self.classifier, model_path)
             
+            # Salvar scaler se disponível
+            if self.scaler is not None:
+                scaler_path = os.path.join(save_path, "scaler.pkl")
+                joblib.dump(self.scaler, scaler_path)
+            
             # Salvar configurações
             config = {
                 'classes': self.classes,
                 'classifier_config': self.classifier_config,
-                'model_type': type(self.classifier).__name__
+                'model_type': type(self.classifier).__name__,
+                'has_scaler': self.scaler is not None
             }
             
             config_path = os.path.join(save_path, "config.json")
@@ -282,15 +288,188 @@ class VideoModelTrainer:
             model_path = os.path.join(load_path, "classifier.pkl")
             if os.path.exists(model_path):
                 self.classifier = joblib.load(model_path)
-                print(f"✅ Modelo carregado de: {load_path}")
-                return True
             else:
                 print(f"❌ Arquivo do modelo não encontrado: {model_path}")
                 return False
+            
+            # Carregar scaler se disponível
+            scaler_path = os.path.join(load_path, "scaler.pkl")
+            if os.path.exists(scaler_path):
+                self.scaler = joblib.load(scaler_path)
+                print(f"✅ Scaler carregado")
+            else:
+                print(f"⚠️ Scaler não encontrado - predições podem ter baixa acurácia")
+                self.scaler = None
+                
+            print(f"✅ Modelo carregado de: {load_path}")
+            return True
                 
         except Exception as e:
             print(f"❌ Erro ao carregar modelo: {e}")
             return False
+    
+    def predict_video(self, video_path):
+        """
+        Classifica um vídeo usando o modelo treinado
+        
+        Args:
+            video_path: Caminho do vídeo a ser classificado
+            
+        Returns:
+            dict: Resultado da predição com classe e confiança
+        """
+        if self.classifier is None:
+            raise ValueError("Modelo não carregado. Use load_model() primeiro.")
+        
+        try:
+            # Configurar extrator se necessário
+            if self.feature_extractor is None:
+                self._setup_feature_extractor()
+            
+            # Extrair features do vídeo
+            features = self._extract_video_features(video_path)
+            
+            if features is None:
+                return {
+                    'predicted_class': None,
+                    'confidence': 0.0,
+                    'error': 'Erro ao extrair features do vídeo'
+                }
+            
+            # Escalonar features se scaler disponível
+            if self.scaler is not None:
+                features = self.scaler.transform([features])
+            else:
+                features = [features]
+            
+            # Fazer predição
+            prediction = self.classifier.predict(features)[0]
+            
+            # Obter probabilidades se disponível
+            if hasattr(self.classifier, 'predict_proba'):
+                probabilities = self.classifier.predict_proba(features)[0]
+                confidence = np.max(probabilities)
+            else:
+                confidence = 1.0
+            
+            # Mapear índice para nome da classe
+            if isinstance(prediction, (int, np.integer)):
+                predicted_class = self.classes[prediction] if prediction < len(self.classes) else f"class_{prediction}"
+            else:
+                predicted_class = str(prediction)
+            
+            return {
+                'predicted_class': predicted_class,
+                'confidence': float(confidence),
+                'probabilities': probabilities.tolist() if hasattr(self.classifier, 'predict_proba') else None
+            }
+            
+        except Exception as e:
+            return {
+                'predicted_class': None,
+                'confidence': 0.0,
+                'error': str(e)
+            }
+    
+    def evaluate_on_dataset(self, dataset_path, max_videos_per_class=10):
+        """
+        Avalia o modelo em um dataset
+        
+        Args:
+            dataset_path: Caminho do dataset
+            max_videos_per_class: Máximo de vídeos por classe para testar
+            
+        Returns:
+            dict: Resultados da avaliação
+        """
+        if self.classifier is None:
+            return {
+                'success': False,
+                'error': 'Modelo não carregado'
+            }
+        
+        try:
+            # Importar dataset functions
+            from dataset_manager import load_video_dataset
+            
+            # Carregar dataset
+            dataset_info = load_video_dataset(dataset_path, verbose=True)
+            
+            if not dataset_info:
+                return {
+                    'success': False,
+                    'error': 'Dataset vazio ou inválido'
+                }
+            
+            # Configurar extrator
+            if self.feature_extractor is None:
+                self._setup_feature_extractor()
+            
+            # Coletar predições
+            y_true = []
+            y_pred = []
+            predictions_details = []
+            
+            for class_name, video_files in dataset_info.items():
+                # Limitar número de vídeos por classe
+                video_files = video_files[:max_videos_per_class]
+                
+                print(f"🎯 Testando classe: {class_name} ({len(video_files)} vídeos)")
+                
+                for i, video_file in enumerate(video_files):
+                    print(f"  [{i+1}/{len(video_files)}] {os.path.basename(video_file)}")
+                    
+                    # Fazer predição
+                    result = self.predict_video(video_file)
+                    
+                    if result.get('error'):
+                        print(f"    ❌ Erro: {result['error']}")
+                        continue
+                    
+                    y_true.append(class_name)
+                    y_pred.append(result['predicted_class'])
+                    
+                    predictions_details.append({
+                        'video': os.path.basename(video_file),
+                        'true_class': class_name,
+                        'predicted_class': result['predicted_class'],
+                        'confidence': result['confidence'],
+                        'correct': result['predicted_class'] == class_name
+                    })
+                    
+                    status = "✅" if result['predicted_class'] == class_name else "❌"
+                    print(f"    {status} {result['predicted_class']} ({result['confidence']:.1%})")
+            
+            if len(y_true) == 0:
+                return {
+                    'success': False,
+                    'error': 'Nenhum vídeo processado com sucesso'
+                }
+            
+            # Calcular métricas
+            accuracy = np.mean([pred == true for pred, true in zip(y_pred, y_true)])
+            
+            # Relatório de classificação
+            unique_labels = sorted(list(set(y_true) | set(y_pred)))
+            try:
+                report = classification_report(y_true, y_pred, labels=unique_labels, target_names=unique_labels)
+            except Exception:
+                report = "Erro ao gerar relatório"
+            
+            return {
+                'success': True,
+                'accuracy': accuracy,
+                'total_videos': len(y_true),
+                'predictions': predictions_details,
+                'classification_report': report,
+                'classes_tested': unique_labels
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }
     
     def _setup_feature_extractor(self):
         """

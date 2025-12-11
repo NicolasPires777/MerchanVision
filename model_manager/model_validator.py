@@ -124,24 +124,61 @@ class ModelValidator:
             }
         
         try:
-            # Carregar modelo (seria implementado com a lógica real)
-            print("💡 Implementar carregamento e teste do modelo")
-            print("⚠️ Requer integração com video_classifier_simple.py ou model_trainer.py")
+            # Carregar modelo usando VideoModelTrainer
+            import sys
+            import os
+            sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+            from model_trainer import VideoModelTrainer
             
-            # Placeholder para resultados
-            results = {
+            trainer = VideoModelTrainer()
+            
+            # Carregar modelo
+            if not trainer.load_model(model_path):
+                return {
+                    'success': False,
+                    'error': 'Falha ao carregar o modelo'
+                }
+            
+            # Avaliar no dataset
+            print(f"🎯 Avaliando modelo no dataset...")
+            results = trainer.evaluate_on_dataset(dataset_path, max_videos_per_class)
+            
+            if not results.get('success'):
+                return {
+                    'success': False,
+                    'error': results.get('error', 'Erro na avaliação')
+                }
+            
+            # Formatar resultados
+            performance_results = {
                 'success': True,
                 'model_info': structure_check['info'],
                 'performance': {
-                    'accuracy': 0.0,
-                    'classes_tested': [],
-                    'predictions': [],
-                    'confusion_matrix': []
+                    'accuracy': results['accuracy'],
+                    'total_videos': results['total_videos'],
+                    'classes_tested': results['classes_tested'],
+                    'predictions': results['predictions'],
+                    'classification_report': results['classification_report']
                 },
                 'recommendations': []
             }
             
-            return results
+            # Gerar recomendações
+            accuracy = results['accuracy']
+            if accuracy < 0.7:
+                performance_results['recommendations'].append("Acurácia baixa - considere mais dados de treino ou ajuste de hiperparâmetros")
+            elif accuracy > 0.95:
+                performance_results['recommendations'].append("Possível overfitting - validar com dataset independente")
+            
+            if results['total_videos'] < 20:
+                performance_results['recommendations'].append("Dataset de teste pequeno - considere mais amostras para validação confiável")
+            
+            print(f"\n📊 Resultados:")
+            print(f"   🎯 Acurácia: {accuracy:.1%}")
+            print(f"   📈 Vídeos testados: {results['total_videos']}")
+            print(f"   📋 Classes: {', '.join(results['classes_tested'])}")
+            
+            return performance_results
             
         except Exception as e:
             print(f"❌ Erro na análise: {e}")
