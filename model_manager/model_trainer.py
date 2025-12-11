@@ -9,12 +9,23 @@ import json
 import time
 import joblib
 import numpy as np
+import cv2
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, classification_report
 import argparse
+
+# Importar TensorFlow/Keras para extração de features
+try:
+    import tensorflow as tf
+    from tensorflow import keras
+    from tensorflow.keras.applications import EfficientNetB0
+    TENSORFLOW_AVAILABLE = True
+except ImportError:
+    print("⚠️ TensorFlow não disponível - usando features mockadas")
+    TENSORFLOW_AVAILABLE = False
 
 
 class VideoModelTrainer:
@@ -30,6 +41,7 @@ class VideoModelTrainer:
         self.classes = classes
         self.classifier = None
         self.scaler = None  # Inicializar scaler
+        self.feature_extractor = None  # Extrator de features para vídeos
         
         # Configurações padrão do classificador
         self.classifier_config = {
@@ -63,24 +75,37 @@ class VideoModelTrainer:
         if not dataset_info:
             raise ValueError("Dataset vazio ou inválido")
         
-        # Processar vídeos em features (placeholder)
-        # NOTA: Esta é uma implementação simplificada
-        # Em um projeto real, aqui seria feito o processamento dos vídeos
-        print("💡 Processamento de vídeos seria implementado aqui")
-        print("⚠️ Usando features mockadas para demonstração")
+        # Processar vídeos em features REAIS (não mockados)
+        # Implementação baseada em video_classifier_simple.py
+        print("🎬 Processando vídeos e extraindo features REAIS...")
+        
+        # Configurar extrator de features
+        self._setup_feature_extractor()
         
         X = []
         y = []
         
         for class_name, video_files in dataset_info.items():
-            for video_file in video_files:
-                # Mock: gerar features aleatórias para demonstração
-                # Em implementação real: processar vídeo para extrair features
-                import numpy as np
-                features = np.random.rand(100)  # 100 features mockadas
+            print(f"🎯 Processando classe: {class_name} ({len(video_files)} vídeos)")
+            
+            for i, video_file in enumerate(video_files):
+                print(f"  [{i+1}/{len(video_files)}] {os.path.basename(video_file)}")
                 
-                X.append(features)
-                y.append(class_name)
+                try:
+                    features = self._extract_video_features(video_file)
+                    
+                    if features is not None:
+                        X.append(features)
+                        y.append(class_name)
+                        print(f"    ✅ Features extraídas: {features.shape}")
+                    else:
+                        print(f"    ❌ Erro ao extrair features")
+                
+                except Exception as e:
+                    print(f"    ❌ Erro: {e}")
+        
+        if len(X) == 0:
+            raise ValueError("Nenhum vídeo processado com sucesso")
         
         X = np.array(X)
         y = np.array(y)
@@ -266,6 +291,105 @@ class VideoModelTrainer:
         except Exception as e:
             print(f"❌ Erro ao carregar modelo: {e}")
             return False
+    
+    def _setup_feature_extractor(self):
+        """
+        Configura o extrator de features baseado em EfficientNetB0
+        """
+        if not TENSORFLOW_AVAILABLE:
+            print("❌ TensorFlow não disponível - usando features mockadas")
+            self.feature_extractor = None
+            return
+        
+        try:
+            print("🔧 Configurando extrator de features (EfficientNetB0)...")
+            
+            # Configurações de vídeo
+            width, height = 224, 224
+            
+            # EfficientNetB0 pré-treinado
+            base_model = EfficientNetB0(
+                weights='imagenet',
+                include_top=False,
+                pooling='avg',
+                input_shape=(height, width, 3)
+            )
+            
+            self.feature_extractor = base_model
+            print("✅ Extrator de features configurado")
+            
+        except Exception as e:
+            print(f"❌ Erro ao configurar extrator: {e}")
+            self.feature_extractor = None
+    
+    def _extract_video_features(self, video_path, max_frames=5):
+        """
+        Extrai features reais de um vídeo usando CNN pré-treinada
+        
+        Args:
+            video_path: Caminho do vídeo
+            max_frames: Máximo de frames a processar
+        
+        Returns:
+            Array com features agregadas do vídeo ou None se erro
+        """
+        if self.feature_extractor is None:
+            # Fallback para features mockadas se TensorFlow não disponível
+            print("    ⚠️ Usando features mockadas (TensorFlow indisponível)")
+            return np.random.rand(1280)  # EfficientNetB0 produz 1280 features
+        
+        try:
+            cap = cv2.VideoCapture(video_path)
+            frames = []
+            frame_count = 0
+            processed_frames = 0
+            
+            # Obter informações do vídeo
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            fps = cap.get(cv2.CAP_PROP_FPS) or 30
+            duration = total_frames / fps
+            
+            # Calcular sample_rate para distribuir frames uniformemente
+            sample_rate = max(1, total_frames // max_frames)
+            
+            while processed_frames < max_frames:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                if frame_count % sample_rate == 0:
+                    # Redimensionar para 224x224 (EfficientNet)
+                    frame = cv2.resize(frame, (224, 224))
+                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    frame = frame.astype(np.float32) / 255.0
+                    frames.append(frame)
+                    processed_frames += 1
+                
+                frame_count += 1
+            
+            cap.release()
+            
+            if len(frames) == 0:
+                print("    ⚠️ Nenhum frame válido extraído")
+                return None
+            
+            # Extrair features de todos os frames
+            frames_array = np.array(frames)
+            features = self.feature_extractor.predict(frames_array, verbose=0)
+            
+            # Agregar features (média, máximo, mínimo, desvio padrão)
+            aggregated_features = np.concatenate([
+                np.mean(features, axis=0),      # Média
+                np.max(features, axis=0),       # Máximo  
+                np.min(features, axis=0),       # Mínimo
+                np.std(features, axis=0)        # Desvio padrão
+            ])
+            
+            return aggregated_features
+            
+        except Exception as e:
+            print(f"    ❌ Erro ao processar vídeo {video_path}: {e}")
+            return None
 
 
 def train_model_from_dataset(dataset_path, model_name, models_dir="models", classifier_type='rf'):
