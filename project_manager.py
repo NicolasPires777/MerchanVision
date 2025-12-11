@@ -10,7 +10,7 @@ import argparse
 import subprocess
 from pathlib import Path
 
-# Import dataset manager functions
+# Import dataset and model manager functions
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from dataset_manager import (
     create_sample_dataset,
@@ -19,6 +19,7 @@ from dataset_manager import (
     get_dataset_statistics,
     get_dataset_basic_info
 )
+from model_manager import VideoModelTrainer, ModelValidator, list_available_models
 
 class VideoClassificationManager:
     """Gerenciador de classificação de vídeo"""
@@ -48,9 +49,8 @@ class VideoClassificationManager:
             return "python3"
     
     def list_models(self):
-        """Lista todos os modelos disponíveis"""
-        models = [d for d in os.listdir(self.models_dir) 
-                 if os.path.isdir(os.path.join(self.models_dir, d))]
+        """Lista todos os modelos disponíveis usando model_manager"""
+        models = list_available_models(self.models_dir)
         
         print("🤖 Modelos disponíveis:")
         if not models:
@@ -58,19 +58,11 @@ class VideoClassificationManager:
             return []
         
         for model in models:
-            model_path = os.path.join(self.models_dir, model)
-            
-            # Verificar arquivos do modelo
-            classifier_exists = os.path.exists(os.path.join(model_path, "classifier.pkl"))
-            
-            if classifier_exists:
-                status = "✅ Treinado"
-            else:
-                status = "❌ Incompleto"
-            
-            print(f"  🎯 {model}: {status}")
+            status = "✅ Completo" if model['has_config'] else "⚠️ Sem config"
+            print(f"  🎯 {model['name']}: {status}")
         
-        return models
+        # Retornar apenas os nomes para compatibilidade
+        return [model['name'] for model in models]
     
     def list_datasets(self):
         """Lista todos os datasets disponíveis usando dataset_manager"""
@@ -217,14 +209,18 @@ class VideoClassificationManager:
         print(f"🚀 Treinando modelo '{model_name}' com dataset '{dataset_name}'...")
         
         try:
-            subprocess.run([
-                self.python_cmd, 'scripts/video_classifier_simple.py', 'train',
-                '--dataset', dataset_path,
-                '--save', model_path
-            ], check=True)
+            # Usar model_manager ao invés de scripts
+            trainer = VideoModelTrainer()
+            
+            # Treinar diretamente do dataset path
+            model, scaler = trainer.train_from_dataset(dataset_path)
+            
+            # Salvar o modelo (o trainer já tem modelo e scaler internos)
+            trainer.save_model(model_path)
+            
             print(f"✅ Modelo treinado com sucesso!")
             return True
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             print(f"❌ Erro no treinamento: {e}")
             return False
     
@@ -243,12 +239,17 @@ class VideoClassificationManager:
         print(f"🎬 Classificando vídeo: {video_path}")
         
         try:
-            subprocess.run([
-                self.python_cmd, 'scripts/video_classifier_simple.py', 'predict',
-                '--video', video_path,
-                '--load', model_path
-            ], check=True)
-        except subprocess.CalledProcessError as e:
+            # Usar model_manager ao invés de scripts
+            trainer = VideoModelTrainer()
+            trainer.load_model(model_path)
+            
+            result = trainer.predict_video(video_path)
+            
+            print(f"📊 Resultado da classificação:")
+            print(f"   🎯 Classe: {result['predicted_class']}")
+            print(f"   📈 Confiança: {result['confidence']:.1%}")
+            
+        except Exception as e:
             print(f"❌ Erro na classificação: {e}")
     
     def realtime_classification(self):
@@ -381,13 +382,25 @@ class VideoClassificationManager:
         
         print(f"🔍 Validando modelo {model_name} com dataset {dataset_name}...")
         try:
-            subprocess.run([
-                self.python_cmd, 'scripts/model_diagnosis.py',
-                '--model1', model_path,
-                '--dataset1', dataset_path,
-                '--max-videos', str(max_videos)
-            ], check=True)
-        except subprocess.CalledProcessError as e:
+            # Usar model_manager ao invés de scripts
+            validator = ModelValidator()
+            result = validator.analyze_model_performance(model_path, dataset_path, max_videos)
+            
+            if result.get('success'):
+                print("✅ Validação concluída com sucesso!")
+                
+                performance = result.get('performance', {})
+                if 'accuracy' in performance:
+                    print(f"📊 Acurácia: {performance['accuracy']:.1%}")
+                
+                if result.get('recommendations'):
+                    print("\n💡 Recomendações:")
+                    for rec in result['recommendations']:
+                        print(f"   • {rec}")
+            else:
+                print(f"❌ Falha na validação: {result.get('error', 'Erro desconhecido')}")
+                
+        except Exception as e:
             print(f"❌ Erro na validação: {e}")
     
     def compare_models(self):
@@ -429,15 +442,30 @@ class VideoClassificationManager:
         
         print(f"🆚 Comparando {model1_name} vs {model2_name}...")
         try:
-            subprocess.run([
-                self.python_cmd, 'scripts/model_diagnosis.py',
-                '--model1', model1_path,
-                '--model2', model2_path,
-                '--dataset1', dataset1_path,
-                '--dataset2', dataset2_path,
-                '--max-videos', str(max_videos)
-            ], check=True)
-        except subprocess.CalledProcessError as e:
+            # Usar model_manager ao invés de scripts
+            validator = ModelValidator()
+            
+            # Para simplificar, usar o mesmo dataset para ambos
+            dataset_path = dataset1_path  # Ou escolher o melhor
+            
+            result = validator.compare_models(model1_path, model2_path, dataset_path, max_videos)
+            
+            if result.get('model1', {}).get('results', {}).get('success') and result.get('model2', {}).get('results', {}).get('success'):
+                winner = result.get('winner')
+                if winner:
+                    winner_name = model1_name if winner == 'model1' else model2_name
+                    print(f"🏆 Vencedor: {winner_name}")
+                
+                differences = result.get('differences', [])
+                if differences:
+                    print("\n📊 Diferenças encontradas:")
+                    for diff in differences:
+                        print(f"   • {diff}")
+                        
+            else:
+                print("❌ Falha na comparação - um ou ambos os modelos tiveram problemas")
+                
+        except Exception as e:
             print(f"❌ Erro na comparação: {e}")
     
     def main_menu(self):

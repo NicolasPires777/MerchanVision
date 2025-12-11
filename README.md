@@ -110,12 +110,13 @@ python project_manager.py
 # Escolha: 5 → Caminho do vídeo → Modelo
 
 # Via código Python
-from scripts.video_classifier_simple import SimpleVideoClassifier
+from model_manager import VideoModelTrainer
 
-classifier = SimpleVideoClassifier()
-classifier.load_model('models/alpha-v7-efficientnet-merchan.h5')
+# Para carregar e usar um modelo existente
+trainer = VideoModelTrainer()
+trainer.load_model('models/alpha-v7-efficientnet-merchan.h5')
 
-result = classifier.predict_video('meu_video.mp4')
+result = trainer.predict_video('meu_video.mp4')
 print(f"Classe: {result['predicted_class']}")
 print(f"Confiança: {result['confidence']:.1%}")
 ```
@@ -271,10 +272,12 @@ python project_manager.py
 python project_manager.py  
 # Opção: 8 → Modelo 1 → Modelo 2
 
-# Diagnóstico detalhado
-python scripts/model_diagnosis.py \
-  --model models/alpha-v7-efficientnet-merchan.h5 \
-  --dataset datasets/meu_dataset
+# Diagnóstico detalhado via model_manager
+python -c "
+from model_manager import ModelValidator
+validator = ModelValidator()
+validator.analyze_model_performance('models/alpha-v7-efficientnet-merchan.h5', 'datasets/meu_dataset')
+"
 ```
 
 ### � Criação de Modelos
